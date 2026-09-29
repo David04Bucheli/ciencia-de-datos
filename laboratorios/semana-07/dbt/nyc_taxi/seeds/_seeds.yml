@@ -1,0 +1,22 @@
+version: 2
+
+seeds:
+  - name: ref_vendor
+    description: Proveedores TPEP según el diccionario TLC (marzo 2025) + miembro -1 'Unknown'.
+    columns:
+      - name: vendor_id
+        data_tests: [unique, not_null]
+      - name: vendor_name
+        data_tests: [not_null]
+
+  - name: ref_rate_code
+    description: Códigos de tarifa (RatecodeID) según el diccionario TLC. 99 = nulo/desconocido.
+    columns:
+      - name: rate_code_id
+        data_tests: [unique, not_null]
+
+  - name: ref_payment_type
+    description: Formas de pago (payment_type) según el diccionario TLC. 5 = desconocido.
+    columns:
+      - name: payment_type_id
+        data_tests: [unique, not_null]

@@ -1,0 +1,8 @@
+rate_code_id,rate_code_name,rate_code_description_es
+1,Standard rate,Tarifa estándar
+2,JFK,Tarifa fija aeropuerto JFK
+3,Newark,Aeropuerto de Newark
+4,Nassau or Westchester,Nassau o Westchester
+5,Negotiated fare,Tarifa negociada
+6,Group ride,Viaje compartido
+99,Null/unknown,Desconocido

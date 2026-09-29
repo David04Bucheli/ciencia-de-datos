@@ -34,3 +34,17 @@ models:
     gold:
       +schema: gold
       +tags: ["gold"]
+
+seeds:
+  nyc_taxi:
+    +schema: silver
+    +tags: ["silver", "referencia"]
+    ref_vendor:
+      +column_types:
+        vendor_id: integer
+    ref_rate_code:
+      +column_types:
+        rate_code_id: integer
+    ref_payment_type:
+      +column_types:
+        payment_type_id: integer

@@ -1,0 +1,173 @@
+version: 2
+
+models:
+  - name: slv_taxi_zones
+    description: >
+      SILVER. Zonas de taxi con tipos correctos y valores "sin dato" unificados
+      ('N/A', 'Unknown' y vacío -> 'Unknown'; zona 265 -> 'Outside of NYC').
+    columns:
+      - name: location_id
+        description: Identificador de zona TLC (1-265).
+        data_tests: [unique, not_null]
+      - name: borough
+        description: Distrito.
+        data_tests: [not_null]
+      - name: zone_name
+        description: Nombre de la zona.
+        data_tests: [not_null]
+      - name: service_zone
+        description: Zona de servicio TLC.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Yellow Zone', 'Boro Zone', 'Airports', 'EWR', 'Unknown', 'Outside of NYC']
+      - name: is_airport
+        description: Verdadero para Newark (1), JFK (132) y LaGuardia (138).
+      - name: is_unknown_location
+        description: Verdadero para las zonas sin ubicación conocida (264 y 265).
+
+  - name: slv_yellow_trips_standardized
+    description: >
+      SILVER (auditoría). TODOS los registros de Bronze ya tipados y estandarizados, con una
+      bandera dq_* por regla de calidad, el motivo de rechazo y is_valid. Grano: un registro de origen.
+    columns:
+      - name: trip_id
+        description: Identificador del registro (viene de Bronze = hash de archivo + fila).
+        data_tests: [unique, not_null]
+      - name: vendor_id
+        description: Proveedor estandarizado (-1 si el código no está en el diccionario).
+        data_tests: [not_null]
+      - name: rate_code_id
+        description: Tarifa estandarizada (99 si falta o no existe).
+        data_tests: [not_null]
+      - name: payment_type_id
+        description: Forma de pago estandarizada (5 si falta o no existe).
+        data_tests: [not_null]
+      - name: pickup_location_id
+        description: Zona de recogida (264 si falta o no existe en el catálogo).
+        data_tests: [not_null]
+      - name: dropoff_location_id
+        description: Zona de destino (264 si falta o no existe en el catálogo).
+        data_tests: [not_null]
+      - name: passenger_count
+        description: Pasajeros (NULL si se reportó vacío, 0 o fuera de 1..6).
+      - name: rejection_reason
+        description: Motivo principal de rechazo (NULL si el registro es válido).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['MISSING_DATETIME', 'DUPLICATE', 'OUT_OF_PERIOD', 'NON_POSITIVE_DURATION',
+                         'EXCESSIVE_DURATION', 'MISSING_AMOUNT', 'NEGATIVE_AMOUNT', 'EXCESSIVE_AMOUNT',
+                         'INVALID_DISTANCE', 'EMPTY_TRIP']
+      - name: dq_issues
+        description: Todas las reglas que incumple el registro, separadas por coma.
+      - name: dq_imputations
+        description: Campos que se corrigieron o imputaron, separados por coma.
+      - name: is_valid
+        description: Verdadero si el registro pasa todas las reglas de calidad.
+        data_tests: [not_null]
+      - name: _source_file
+        description: Archivo de origen.
+        data_tests: [not_null]
+      - name: _source_period
+        description: Mes del archivo de origen.
+        data_tests: [not_null]
+
+  - name: slv_yellow_trips
+    description: >
+      SILVER (limpio). Solo viajes válidos, estandarizados y sin duplicados.
+      Es la entrada de la capa Gold. Grano: un viaje válido.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "dropoff_datetime > pickup_datetime"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "total_amount >= 0 and fare_amount >= 0"
+    columns:
+      - name: trip_id
+        description: Identificador único del viaje.
+        data_tests: [unique, not_null]
+      - name: vendor_id
+        description: Proveedor.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('ref_vendor')
+                field: vendor_id
+      - name: pickup_datetime
+        description: Inicio del viaje (hora local de Nueva York).
+        data_tests: [not_null]
+      - name: dropoff_datetime
+        description: Fin del viaje (hora local de Nueva York).
+        data_tests: [not_null]
+      - name: passenger_count
+        description: Pasajeros (NULL = no reportado o inválido).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 6
+      - name: trip_distance_miles
+        description: Distancia en millas.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 200
+      - name: trip_duration_minutes
+        description: Duración en minutos.
+      - name: rate_code_id
+        description: Código de tarifa.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('ref_rate_code')
+                field: rate_code_id
+      - name: pickup_location_id
+        description: Zona de recogida.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('slv_taxi_zones')
+                field: location_id
+      - name: dropoff_location_id
+        description: Zona de destino.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('slv_taxi_zones')
+                field: location_id
+      - name: payment_type_id
+        description: Forma de pago.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('ref_payment_type')
+                field: payment_type_id
+      - name: total_amount
+        description: Total cobrado al pasajero (USD). No incluye propinas en efectivo.
+      - name: _source_file
+        description: Archivo de origen.
+        data_tests: [not_null]
+
+  - name: slv_yellow_trips_rejected
+    description: SILVER (cuarentena). Registros rechazados con su motivo, para auditoría.
+    columns:
+      - name: trip_id
+        data_tests: [unique, not_null]
+      - name: rejection_reason
+        data_tests: [not_null]
+
+  - name: slv_data_quality_summary
+    description: SILVER. Resumen por mes de registros recibidos, válidos, rechazados y motivos.
+    columns:
+      - name: source_period
+        data_tests: [unique, not_null]

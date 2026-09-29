@@ -1,0 +1,8 @@
+payment_type_id,payment_type_name,payment_type_description_es
+0,Flex Fare trip,Tarifa flexible
+1,Credit card,Tarjeta de crédito
+2,Cash,Efectivo
+3,No charge,Sin cargo
+4,Dispute,Disputa
+5,Unknown,Desconocido
+6,Voided trip,Viaje anulado
