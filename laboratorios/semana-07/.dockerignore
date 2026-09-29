@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+secrets/
+*.p8
+*.pem
+.git/
+docs/
+kestra/
+**/__pycache__/
+**/*.pyc
+dbt/nyc_taxi/target/
+dbt/nyc_taxi/dbt_packages/
+dbt/nyc_taxi/logs/
+.venv/
