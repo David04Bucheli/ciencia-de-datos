@@ -1,0 +1,155 @@
+version: 2
+
+models:
+  # ============================================================ TABLA DE HECHOS
+  - name: fct_trips
+    description: >
+      GOLD. Tabla de hechos de viajes. GRANO: una fila por viaje válido de Yellow Taxi
+      (un encendido y apagado del taxímetro). Se relaciona con dim_date y dim_time (dos veces:
+      recogida y llegada), dim_zone (dos veces: recogida y destino), dim_vendor,
+      dim_rate_code y dim_payment_type.
+    columns:
+      - name: trip_key
+        description: PK. Identificador único del viaje (hash de archivo de origen + fila).
+        data_tests: [unique, not_null]
+      - name: pickup_date_key
+        description: FK -> dim_date. Fecha de recogida (AAAAMMDD).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+      - name: pickup_time_key
+        description: FK -> dim_time. Hora de recogida (0-23).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_time'), field: time_key}
+      - name: dropoff_date_key
+        description: FK -> dim_date. Fecha de llegada (AAAAMMDD).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+      - name: dropoff_time_key
+        description: FK -> dim_time. Hora de llegada (0-23).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_time'), field: time_key}
+      - name: pickup_zone_key
+        description: FK -> dim_zone. Zona de recogida.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_zone'), field: zone_key}
+      - name: dropoff_zone_key
+        description: FK -> dim_zone. Zona de destino.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_zone'), field: zone_key}
+      - name: vendor_key
+        description: FK -> dim_vendor. Proveedor que registró el viaje.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_vendor'), field: vendor_key}
+      - name: rate_code_key
+        description: FK -> dim_rate_code. Tarifa aplicada.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_rate_code'), field: rate_code_key}
+      - name: payment_type_key
+        description: FK -> dim_payment_type. Forma de pago.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_payment_type'), field: payment_type_key}
+      - name: pickup_datetime
+        description: Atributo. Fecha y hora exacta de recogida (hora local NY).
+      - name: dropoff_datetime
+        description: Atributo. Fecha y hora exacta de llegada (hora local NY).
+      - name: is_store_and_forward
+        description: Atributo. Si el registro se guardó en el vehículo antes de enviarse.
+      - name: trip_count
+        description: Métrica aditiva. Siempre 1; SUM(trip_count) = número de viajes.
+      - name: passenger_count
+        description: Métrica. Pasajeros (NULL = no reportado).
+      - name: trip_distance_miles
+        description: Métrica aditiva. Distancia en millas.
+      - name: trip_duration_minutes
+        description: Métrica aditiva. Duración en minutos.
+      - name: fare_amount
+        description: Métrica aditiva (USD). Tarifa por tiempo y distancia.
+      - name: tip_amount
+        description: Métrica aditiva (USD). Propinas con tarjeta.
+      - name: total_amount
+        description: Métrica aditiva (USD). Total cobrado al pasajero.
+      - name: _source_file
+        description: Linaje. Archivo de origen.
+        data_tests: [not_null]
+
+  # ================================================================ DIMENSIONES
+  - name: dim_date
+    description: GOLD. Dimensión calendario, una fila por día.
+    columns:
+      - name: date_key
+        description: PK. Fecha como entero AAAAMMDD.
+        data_tests: [unique, not_null]
+      - name: full_date
+        description: Fecha.
+        data_tests: [unique, not_null]
+
+  - name: dim_time
+    description: GOLD. Dimensión hora del día, una fila por hora.
+    columns:
+      - name: time_key
+        description: PK. Hora del día (0-23).
+        data_tests: [unique, not_null]
+      - name: day_part
+        description: Franja del día (Madrugada, Mañana, Tarde, Noche).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Madrugada', 'Mañana', 'Tarde', 'Noche']
+
+  - name: dim_zone
+    description: GOLD. Dimensión zona TLC. Se usa como zona de recogida y como zona de destino.
+    columns:
+      - name: zone_key
+        description: PK. Llave sustituta (hash de location_id).
+        data_tests: [unique, not_null]
+      - name: location_id
+        description: Llave natural. Identificador de zona TLC.
+        data_tests: [unique, not_null]
+
+  - name: dim_vendor
+    description: GOLD. Dimensión proveedor tecnológico que registró el viaje.
+    columns:
+      - name: vendor_key
+        description: PK. Llave sustituta (hash de vendor_id).
+        data_tests: [unique, not_null]
+      - name: vendor_id
+        description: Llave natural (VendorID de la TLC; -1 = desconocido).
+        data_tests: [unique, not_null]
+
+  - name: dim_rate_code
+    description: GOLD. Dimensión tarifa aplicada al final del viaje.
+    columns:
+      - name: rate_code_key
+        description: PK. Llave sustituta (hash de rate_code_id).
+        data_tests: [unique, not_null]
+      - name: rate_code_id
+        description: Llave natural (RatecodeID; 99 = desconocido).
+        data_tests: [unique, not_null]
+
+  - name: dim_payment_type
+    description: GOLD. Dimensión forma de pago.
+    columns:
+      - name: payment_type_key
+        description: PK. Llave sustituta (hash de payment_type_id).
+        data_tests: [unique, not_null]
+      - name: payment_type_id
+        description: Llave natural (payment_type; 5 = desconocido).
+        data_tests: [unique, not_null]
