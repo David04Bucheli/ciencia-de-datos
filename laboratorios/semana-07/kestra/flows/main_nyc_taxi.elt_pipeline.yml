@@ -1,0 +1,125 @@
+id: elt_pipeline
+namespace: nyc_taxi
+description: |
+  Laboratorio Integrador 1: tubería ELT reproducible de NYC Yellow Taxi.
+
+  1. snowflake_infra: crea en Snowflake el warehouse, la base, los esquemas y las tablas RAW (solo si faltan).
+  2. ingest_zones / ingest_trips: descarga los archivos de la TLC y los carga tal cual en RAW (idempotente).
+  3. dbt_bronze -> dbt_silver -> dbt_gold: transformaciones y pruebas de dbt por capa.
+
+  Cada paso corre en un contenedor de la imagen nyc-taxi-pipeline:latest.
+  Volver a ejecutar el flujo no duplica datos: la ingesta reemplaza por archivo y
+  los modelos incrementales de dbt reemplazan por archivo de origen.
+
+labels:
+  curso: ciencia-de-datos
+  laboratorio: semana-07
+
+inputs:
+  - id: start_month
+    type: STRING
+    defaults: "2025-01"
+    displayName: Mes inicial (AAAA-MM)
+    validator: "^\\d{4}-(0[1-9]|1[0-2])$"
+
+  - id: end_month
+    type: STRING
+    defaults: "2026-08"
+    displayName: Mes final (AAAA-MM)
+    validator: "^\\d{4}-(0[1-9]|1[0-2])$"
+
+  - id: force_reload
+    type: BOOL
+    defaults: false
+    displayName: Volver a descargar y cargar los archivos aunque no hayan cambiado
+
+  - id: full_refresh
+    type: BOOL
+    defaults: false
+    displayName: Reconstruir desde cero las tablas incrementales de dbt
+
+tasks:
+  - id: snowflake_infra
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: Crea (si no existen) warehouse, base de datos, esquemas RAW/BRONZE/SILVER/GOLD, stage y tablas RAW.
+    commands:
+      - cd /app && python -m ingestion bootstrap
+
+  - id: ingest_zones
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: Descarga taxi_zone_lookup.csv y reemplaza RAW.TAXI_ZONE_LOOKUP.
+    commands:
+      - cd /app && python -m ingestion zones
+
+  - id: ingest_trips
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: Descarga los Parquet mensuales y los carga en RAW.YELLOW_TRIPDATA (salta los que no cambiaron).
+    retry:
+      type: constant
+      interval: PT2M
+      maxAttempts: 3
+    commands:
+      - >-
+        cd /app && python -m ingestion trips
+        --start {{ inputs.start_month }}
+        --end {{ inputs.end_month }}
+        --force-reload {{ inputs.force_reload }}
+
+  - id: dbt_bronze
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: "dbt: capa Bronze, con sus pruebas."
+    commands:
+      - >-
+        cd /app/dbt/nyc_taxi && dbt build
+        --select path:models/bronze
+        --indirect-selection buildable
+        {{ inputs.full_refresh ? '--full-refresh' : '' }}
+
+  - id: dbt_silver
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: "dbt: catálogos de referencia (seeds) + capa Silver (limpieza y calidad), con sus pruebas."
+    commands:
+      - >-
+        cd /app/dbt/nyc_taxi && dbt build
+        --select path:seeds path:models/silver
+        --indirect-selection buildable
+        {{ inputs.full_refresh ? '--full-refresh' : '' }}
+
+  - id: dbt_gold
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: "dbt: capa Gold (esquema estrella), con sus pruebas."
+    commands:
+      - >-
+        cd /app/dbt/nyc_taxi && dbt build
+        --select path:models/gold
+        --indirect-selection buildable
+        {{ inputs.full_refresh ? '--full-refresh' : '' }}
+
+triggers:
+  # La TLC publica cada mes con ~2 meses de retraso. Esta ejecución mensual
+  # carga automáticamente los meses que falten, sin duplicar los ya cargados.
+  - id: mensual
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 7 5 * *"
+    timezone: America/Guayaquil
+
+pluginDefaults:
+  - type: io.kestra.plugin.scripts.shell.Commands
+    values:
+      containerImage: nyc-taxi-pipeline:latest
+      taskRunner:
+        type: io.kestra.plugin.scripts.runner.docker.Docker
+        pullPolicy: NEVER
+      env:
+        SNOWFLAKE_ACCOUNT: "{{ envs.snowflake_account ?? '' }}"
+        SNOWFLAKE_USER: "{{ envs.snowflake_user ?? '' }}"
+        SNOWFLAKE_ROLE: "{{ envs.snowflake_role ?? '' }}"
+        SNOWFLAKE_WAREHOUSE: "{{ envs.snowflake_warehouse ?? 'NYC_TAXI_WH' }}"
+        SNOWFLAKE_DATABASE: "{{ envs.snowflake_database ?? 'NYC_TAXI' }}"
+        SNOWFLAKE_AUTH_METHOD: "{{ envs.snowflake_auth_method ?? 'keypair' }}"
+        SNOWFLAKE_PRIVATE_KEY: "{{ envs.snowflake_private_key ?? '' }}"
+        SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: "{{ envs.snowflake_private_key_passphrase ?? '' }}"
+        SNOWFLAKE_TOKEN: "{{ envs.snowflake_token ?? '' }}"
+        SNOWFLAKE_PASSWORD: "{{ envs.snowflake_password ?? '' }}"
+        TLC_START_MONTH: "{{ envs.tlc_start_month ?? '2025-01' }}"
+        TLC_END_MONTH: "{{ envs.tlc_end_month ?? '2026-08' }}"
