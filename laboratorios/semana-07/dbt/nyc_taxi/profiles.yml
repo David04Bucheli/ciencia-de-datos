@@ -1,0 +1,42 @@
+nyc_taxi:
+  target: "{{ env_var('SNOWFLAKE_AUTH_METHOD', 'keypair') | lower }}"
+  outputs:
+    keypair:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', '') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'NYC_TAXI_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'NYC_TAXI') }}"
+      schema: PUBLIC
+      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY', '') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
+      threads: 4
+      query_tag: nyc_taxi_lab_dbt
+      connect_retries: 2
+      connect_timeout: 60
+
+    pat:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', '') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'NYC_TAXI_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'NYC_TAXI') }}"
+      schema: PUBLIC
+      authenticator: programmatic_access_token
+      token: "{{ env_var('SNOWFLAKE_TOKEN', '') }}"
+      threads: 4
+      query_tag: nyc_taxi_lab_dbt
+
+    password:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', '') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'NYC_TAXI_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'NYC_TAXI') }}"
+      schema: PUBLIC
+      password: "{{ env_var('SNOWFLAKE_PASSWORD', '') }}"
+      threads: 4
+      query_tag: nyc_taxi_lab_dbt

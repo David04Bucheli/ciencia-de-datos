@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: brz_yellow_tripdata
+    description: >
+      BRONZE. Viajes Yellow Taxi con los mismos nombres de columna, tipos y valores que la
+      fuente (sin limpiar), más metadata de linaje. Grano: una fila por registro de cada
+      archivo mensual de la TLC.
+    columns:
+      - name: _record_id
+        description: Identificador único y estable del registro = hash(archivo + número de fila).
+        data_tests: [unique, not_null]
+      - name: _source_file
+        description: Archivo de origen (yellow/yellow_tripdata_AAAA-MM.parquet).
+        data_tests: [not_null]
+      - name: _source_period
+        description: Mes que publica el archivo (primer día del mes).
+        data_tests: [not_null]
+      - name: _file_row_number
+        description: Posición de la fila dentro del archivo original.
+        data_tests: [not_null]
+      - name: _file_last_modified
+        description: Fecha de modificación del archivo en el stage.
+      - name: _loaded_at
+        description: Fecha y hora de carga en Snowflake.
+        data_tests: [not_null]
+
+  - name: brz_taxi_zone_lookup
+    description: BRONZE. Tabla de zonas de taxi tal como la publica la TLC, con metadata de origen.
+    columns:
+      - name: locationid
+        description: Identificador de zona TLC.
+        data_tests: [unique, not_null]
+      - name: _source_file
+        data_tests: [not_null]
+      - name: _loaded_at
+        data_tests: [not_null]

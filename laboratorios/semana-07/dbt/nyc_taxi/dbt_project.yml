@@ -1,0 +1,36 @@
+name: nyc_taxi
+version: "1.0.0"
+config-version: 2
+profile: nyc_taxi
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+# Umbrales de las reglas de calidad (Silver) y rango del calendario (Gold)
+vars:
+  max_trip_hours: 24          # duración máxima razonable de un viaje
+  max_trip_miles: 200         # distancia máxima razonable (millas)
+  max_total_amount: 1000      # monto total máximo razonable (USD)
+  max_passengers: 6           # límite legal TLC: 5 + 1 menor de 7 años
+  dim_date_start: "2024-01-01"
+  dim_date_end: "2031-01-01"  # exclusivo
+
+models:
+  nyc_taxi:
+    +persist_docs:            # copia las descripciones como comentarios en Snowflake
+      relation: true
+      columns: true
+    bronze:
+      +schema: bronze
+      +tags: ["bronze"]
+    silver:
+      +schema: silver
+      +tags: ["silver"]
+    gold:
+      +schema: gold
+      +tags: ["gold"]

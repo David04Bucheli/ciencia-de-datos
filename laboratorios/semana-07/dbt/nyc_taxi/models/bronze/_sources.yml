@@ -1,0 +1,35 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Zona de aterrizaje. La llena el código de ingesta en Python con COPY INTO
+      desde el stage RAW.TLC_STAGE, sin transformar los datos.
+    schema: RAW
+    tables:
+      - name: yellow_tripdata
+        identifier: YELLOW_TRIPDATA
+        description: Viajes Yellow Taxi tal como vienen en los Parquet mensuales de la TLC.
+        config:
+          loaded_at_field: _loaded_at
+        columns:
+          - name: _source_file
+            data_tests: [not_null]
+          - name: _file_row_number
+            data_tests: [not_null]
+          - name: _loaded_at
+            data_tests: [not_null]
+
+      - name: taxi_zone_lookup
+        identifier: TAXI_ZONE_LOOKUP
+        description: Tabla de zonas de taxi publicada por la TLC (CSV).
+        columns:
+          - name: locationid
+            data_tests: [unique, not_null]
+
+      - name: ingestion_log
+        identifier: INGESTION_LOG
+        description: Bitácora de ingesta (un registro por archivo con su último estado).
+        columns:
+          - name: source_file
+            data_tests: [unique, not_null]
